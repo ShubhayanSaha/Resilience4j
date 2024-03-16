@@ -1,0 +1,53 @@
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class RateLimiterTest {
+
+    private RateLimiterRegistry rateLimiterRegistry = RateLimiterRegistry.ofDefaults();
+
+    @Test
+    public void shouldLimitRequests() {
+        // Create a rate limiter with a limit of 2 requests per second
+        RateLimiterConfig config = RateLimiterConfig.custom()
+                .limitForPeriod(2)
+                .limitRefreshPeriod(1000)
+                .timeoutDuration(1000)
+                .build();
+        RateLimiter rateLimiter = rateLimiterRegistry.rateLimiter("my-rate-limiter", config);
+
+        // Make 3 requests in a row
+        rateLimiter.acquirePermission();
+        rateLimiter.acquirePermission();
+        rateLimiter.acquirePermission();
+
+        // The third request should be rejected
+        assertThrows(io.github.resilience4j.ratelimiter.RequestNotPermitted.class, () -> rateLimiter.acquirePermission());
+    }
+
+    @Test
+    public void shouldAllowRequestsAfterTimeout() {
+        // Create a rate limiter with a limit of 2 requests per second
+        RateLimiterConfig config = RateLimiterConfig.custom()
+                .limitForPeriod(2)
+                .limitRefreshPeriod(1000)
+                .timeoutDuration(1000)
+                .build();
+        RateLimiter rateLimiter = rateLimiterRegistry.rateLimiter("my-rate-limiter", config);
+
+        // Make 3 requests in a row
+        rateLimiter.acquirePermission();
+        rateLimiter.acquirePermission();
+        rateLimiter.acquirePermission();
+
+        // Wait for the timeout to expire
+        Thread.sleep(1000);
+
+        // The fourth request should be allowed
+        rateLimiter.acquirePermission();
+    }
+}
